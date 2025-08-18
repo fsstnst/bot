@@ -1,90 +1,94 @@
+import logging
+import asyncio
+from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, JobQueue
-import datetime
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackContext,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
+import os
 
-ADMIN_ID = 451971519
-agents = {}
-test_link = "https://forms.office.com/e/76GbS3T71W"
+TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = os.getenv("ADMIN_ID")
+
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+
+user_states = {}
+
+reminder_times = [time(10, 0), time(14, 0), time(20, 0)]  # Часы напоминаний
+
+
+def get_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Тест пройдено / Test completed", callback_data="completed")],
+        [InlineKeyboardButton("⏰ Пройду пізніше / I’ll do it later", callback_data="later")]
+    ])
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    agents[user_id] = {"remind": True, "job": None, "chat_id": chat_id, "responded": False}
-    await send_test_reminder(update, context)
+    user = update.effective_user
+    user_id = user.id
+    user_states[user_id] = {"status": "waiting"}
 
-async def send_test_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [
-            InlineKeyboardButton("✅ Тест пройдено / Test completed", callback_data="done")
-        ],
-        [
-            InlineKeyboardButton("⏰ Пройду пізніше / I’ll do it later", callback_data="later")
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f"❗️Привіт! Не забудь пройти тестування до кінця місяця: {test_link}\n❗️Hi! Don’t forget to complete the test by the end of the month: {test_link}",
-        reply_markup=reply_markup
+    msg = (
+        "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
+        "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/76GbS3T71W"
     )
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(msg, reply_markup=get_keyboard())
+
+    if ADMIN_ID:
+        admin_msg = (
+            f"👤 Користувач натиснув /start:\n"
+            f"Name: {user.full_name}\n"
+            f"Username: @{user.username if user.username else '—'}\n"
+            f"ID: {user.id}\n"
+            f"Lang: {user.language_code}"
+        )
+        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
-    full_name = query.from_user.full_name
-    agents[user_id]["responded"] = True
+    await query.answer()
 
-    if query.data == "done":
-        agents[user_id]["remind"] = False
-        if agents[user_id]["job"]:
-            agents[user_id]["job"].schedule_removal()
-        await query.edit_message_text("✅ Дякую! / Thank you! Тест пройдено.")
-
-        with open("done.txt", "a") as f:
-            f.write(f"{full_name} (ID: {user_id}) пройшов(ла) тест\n")
-
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"✅ Агент {full_name} (ID: {user_id}) повідомив, що пройшов(ла) тест!"
-        )
-
+    if query.data == "completed":
+        user_states[user_id]["status"] = "completed"
+        await query.edit_message_text("✅ Дякуємо! / Thank you for completing the test.")
     elif query.data == "later":
-        await query.edit_message_text("⏰ Добре, нагадаю пізніше / I’ll remind you later.")
-        schedule_daily_reminder(context.job_queue, user_id, query.message.chat_id)
+        user_states[user_id]["status"] = "later"
+        await query.edit_message_text("⏰ Добре, нагадаємо пізніше. / Got it, we’ll remind you later.")
 
 
-def schedule_daily_reminder(job_queue: JobQueue, user_id: int, chat_id: int):
-    if agents[user_id]["job"]:
-        agents[user_id]["job"].schedule_removal()
+async def reminder_loop(application):
+    while True:
+        now = datetime.now().time()
+        if any(now.hour == rt.hour and now.minute == rt.minute for rt in reminder_times):
+            for user_id, state in user_states.items():
+                if state["status"] in ["waiting", "later"]:
+                    try:
+                        await application.bot.send_message(
+                            chat_id=user_id,
+                            text="❗️Нагадування: не забудь пройти тест / Reminder: please complete the test\nhttps://forms.office.com/e/76GbS3T71W",
+                            reply_markup=get_keyboard()
+                        )
+                    except Exception as e:
+                        logging.warning(f"Couldn't send reminder to {user_id}: {e}")
+            await asyncio.sleep(60)  # Ждём 1 минуту, чтобы не дублировать
+        await asyncio.sleep(10)
 
-    job = job_queue.run_daily(
-        lambda ctx: send_daily_if_needed(ctx, user_id),
-        time=datetime.time(hour=10, minute=0)
-    )
-    agents[user_id]["job"] = job
 
-async def send_daily_if_needed(context: ContextTypes.DEFAULT_TYPE, user_id: int):
-    if agents.get(user_id, {}).get("remind") and not agents[user_id].get("responded"):
-        chat_id = agents[user_id]["chat_id"]
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Тест пройдено / Test completed", callback_data="done")
-            ],
-            [
-                InlineKeyboardButton("⏰ Пройду пізніше / I’ll do it later", callback_data="later")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"❗️Привіт! Не забудь пройти тестування до кінця місяця: {test_link}\n❗️Hi! Don’t forget to complete the test by the end of the month: {test_link}",
-            reply_markup=reply_markup
-        )
-
-if __name__ == '__main__':
-    app = ApplicationBuilder().token("8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk").build()
+async def main():
+    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.run_polling()
+    app.add_handler(CallbackQueryHandler(button))
+    asyncio.create_task(reminder_loop(app))
+    await app.run_polling()
 
+
+if __name__ == "__main__":
+    asyncio.run(main())
