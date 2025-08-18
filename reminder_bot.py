@@ -10,7 +10,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# 🔒 Токен и ID захардкожены (небезопасно, но по твоей просьбе)
+# 🔒 Прямо в коде (небезопасно, но как ты просишь)
 TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
 ADMIN_ID = 451971519
 
@@ -18,7 +18,7 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 user_states = {}
 
-reminder_times = [time(10, 0), time(15, 0), time(20, 0)]  # Часы напоминаний
+reminder_times = [time(10, 0), time(14, 0), time(20, 0)]  # Напоминания в 10:00, 14:00, 20:00
 
 
 def get_keyboard():
@@ -89,6 +89,12 @@ async def main():
     await app.run_polling()
 
 
+# 🚀 Для Railway (не использовать asyncio.run())
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
+    loop.run_until_complete(main())
