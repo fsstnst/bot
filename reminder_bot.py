@@ -11,8 +11,8 @@ from telegram.ext import (
 )
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = os.getenv("ADMIN_ID")
+TOKEN = os.getenv("8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk")
+ADMIN_ID = os.getenv("451971519")
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
