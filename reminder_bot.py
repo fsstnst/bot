@@ -9,14 +9,10 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
 )
-import os
 
-# ✅ Читаем переменные окружения
-TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Безопасно преобразуем в число
-
-if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN is not set in environment variables.")
+# 🔒 Токен и ID захардкожены (небезопасно, но по твоей просьбе)
+TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
+ADMIN_ID = 451971519
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
@@ -44,15 +40,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(msg, reply_markup=get_keyboard())
 
-    if ADMIN_ID:
-        admin_msg = (
-            f"👤 Користувач натиснув /start:\n"
-            f"Name: {user.full_name}\n"
-            f"Username: @{user.username if user.username else '—'}\n"
-            f"ID: {user.id}\n"
-            f"Lang: {user.language_code}"
-        )
-        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
+    admin_msg = (
+        f"👤 Користувач натиснув /start:\n"
+        f"Name: {user.full_name}\n"
+        f"Username: @{user.username if user.username else '—'}\n"
+        f"ID: {user.id}\n"
+        f"Lang: {user.language_code}"
+    )
+    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,7 +77,7 @@ async def reminder_loop(application):
                         )
                     except Exception as e:
                         logging.warning(f"Couldn't send reminder to {user_id}: {e}")
-            await asyncio.sleep(60)
+            await asyncio.sleep(60)  # Ждём 1 минуту, чтобы не дублировать
         await asyncio.sleep(10)
 
 
@@ -96,3 +91,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
