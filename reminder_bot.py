@@ -11,14 +11,18 @@ from telegram.ext import (
 )
 import os
 
+# ✅ Читаем переменные окружения
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = os.getenv("ADMIN_ID")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Безопасно преобразуем в число
+
+if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN is not set in environment variables.")
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 user_states = {}
 
-reminder_times = [time(10, 0), time(14, 0), time(20, 0)]  # Часы напоминаний
+reminder_times = [time(10, 0), time(15, 0), time(20, 0)]  # Часы напоминаний
 
 
 def get_keyboard():
@@ -78,7 +82,7 @@ async def reminder_loop(application):
                         )
                     except Exception as e:
                         logging.warning(f"Couldn't send reminder to {user_id}: {e}")
-            await asyncio.sleep(60)  # Ждём 1 минуту, чтобы не дублировать
+            await asyncio.sleep(60)
         await asyncio.sleep(10)
 
 
