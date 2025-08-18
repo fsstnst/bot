@@ -1,24 +1,24 @@
 import logging
-import asyncio
 from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
-    CallbackContext,
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
 )
+import asyncio
 
-# 🔒 Прямо в коде (небезопасно, но как ты просишь)
+# 🔒 Вшитые токены (как ты просила)
 TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
 ADMIN_ID = 451971519
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
 user_states = {}
-
-reminder_times = [time(10, 0), time(14, 0), time(20, 0)]  # Напоминания в 10:00, 14:00, 20:00
+reminder_times = [time(10, 0), time(14, 0), time(20, 0)]
 
 
 def get_keyboard():
@@ -33,21 +33,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_states[user_id] = {"status": "waiting"}
 
-    msg = (
+    await update.message.reply_text(
         "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
-        "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/76GbS3T71W"
+        "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/76GbS3T71W",
+        reply_markup=get_keyboard()
     )
 
-    await update.message.reply_text(msg, reply_markup=get_keyboard())
-
-    admin_msg = (
-        f"👤 Користувач натиснув /start:\n"
-        f"Name: {user.full_name}\n"
-        f"Username: @{user.username if user.username else '—'}\n"
-        f"ID: {user.id}\n"
-        f"Lang: {user.language_code}"
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"👤 Користувач натиснув /start:\n"
+            f"Name: {user.full_name}\n"
+            f"Username: @{user.username if user.username else '—'}\n"
+            f"ID: {user.id}\n"
+            f"Lang: {user.language_code}"
+        )
     )
-    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_msg)
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -63,38 +64,41 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⏰ Добре, нагадаємо пізніше. / Got it, we’ll remind you later.")
 
 
-async def reminder_loop(application):
+async def reminder_loop(app):
     while True:
         now = datetime.now().time()
         if any(now.hour == rt.hour and now.minute == rt.minute for rt in reminder_times):
             for user_id, state in user_states.items():
                 if state["status"] in ["waiting", "later"]:
                     try:
-                        await application.bot.send_message(
+                        await app.bot.send_message(
                             chat_id=user_id,
                             text="❗️Нагадування: не забудь пройти тест / Reminder: please complete the test\nhttps://forms.office.com/e/76GbS3T71W",
                             reply_markup=get_keyboard()
                         )
                     except Exception as e:
                         logging.warning(f"Couldn't send reminder to {user_id}: {e}")
-            await asyncio.sleep(60)  # Ждём 1 минуту, чтобы не дублировать
+            await asyncio.sleep(60)
         await asyncio.sleep(10)
 
 
+# 🚀 Запуск бота без конфликтов Railway и asyncio
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
+
+    # Запускаем напоминания параллельно
     asyncio.create_task(reminder_loop(app))
-    await app.run_polling()
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 
-# 🚀 Для Railway (не использовать asyncio.run())
+# 🧠 Без asyncio.run() чтобы не крашился Railway
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    loop.run_until_complete(main())
+    asyncio.get_event_loop().create_task(main())
+    asyncio.get_event_loop().run_forever()
