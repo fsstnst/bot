@@ -41,7 +41,7 @@ TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 user_states = {}
-reminder_times = [time(10, 0), time(14, 0), time(20, 0)]
+reminder_times = [time(7, 0), time(10, 0), time(15, 20)]
 
 def get_keyboard():
     return InlineKeyboardMarkup([
@@ -58,8 +58,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[user.id] = {"status": "waiting"}
     log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "▶️ /start")
     await update.message.reply_text(
-        "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
-        "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/76GbS3T71W",
+        "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/aVbZuhXAL7"
+        "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/AhcuUbisgu",
         reply_markup=get_keyboard()
     )
 
@@ -86,7 +86,7 @@ async def reminder_loop(app):
                     try:
                         await app.bot.send_message(
                             chat_id=user_id,
-                            text="❗️Нагадування: не забудь пройти тест / Reminder: please complete the test\nhttps://forms.office.com/e/76GbS3T71W",
+                            text="❗️Нагадування: не забудь пройти тест https://forms.office.com/e/aVbZuhXAL7 / Reminder: please complete the test\nhttps://forms.office.com/e/AhcuUbisgu",
                             reply_markup=get_keyboard()
                         )
                     except Exception as e:
