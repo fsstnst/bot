@@ -1,3 +1,4 @@
+
 import logging
 from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,7 +11,6 @@ from telegram.ext import (
 import asyncio
 import gspread
 from google.oauth2.service_account import Credentials
-import os
 
 # 🔐 Google Sheets авторизация напрямую
 creds_json = {
@@ -38,7 +38,7 @@ gc = gspread.authorize(creds)
 sheet = gc.open("Test Responses").sheet1
 
 # 🔧 Telegram настройки
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -104,9 +104,11 @@ async def reminder_loop(app):
 
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
-
     asyncio.create_task(reminder_loop(app))
     await app.run_polling()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
