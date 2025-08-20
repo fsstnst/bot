@@ -101,7 +101,12 @@ async def main_wrapper():
     asyncio.create_task(reminder_loop(app))
     await app.run_polling()
 
+import sys
+
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     try:
         asyncio.run(main_wrapper())
     except RuntimeError as e:
@@ -111,4 +116,5 @@ if __name__ == "__main__":
             loop.run_forever()
         else:
             raise
+
 
