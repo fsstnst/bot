@@ -1,4 +1,3 @@
-
 import logging
 from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -79,7 +78,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id]["status"] = "completed"
         log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "✅ Пройдено")
         await query.edit_message_text("✅ Дякуємо! / Thank you for completing the test.")
-
     elif query.data == "later":
         user_states[user_id]["status"] = "later"
         log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "⏰ Позже")
@@ -102,7 +100,7 @@ async def reminder_loop(app):
             await asyncio.sleep(60)
         await asyncio.sleep(10)
 
-async def main():
+async def main_wrapper():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
@@ -119,4 +117,3 @@ if __name__ == "__main__":
             loop.run_forever()
         else:
             raise
-
