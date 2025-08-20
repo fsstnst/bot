@@ -29,7 +29,10 @@ creds_json = {
 
 creds = Credentials.from_service_account_info(
     creds_json,
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
 )
 gc = gspread.authorize(creds)
 sheet = gc.open("Test Responses").sheet1
