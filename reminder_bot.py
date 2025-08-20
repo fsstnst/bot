@@ -11,7 +11,7 @@ import asyncio
 import gspread
 from google.oauth2.service_account import Credentials
 
-# 🔐 Google Sheets авторизация напрямую
+# Google Sheets auth
 creds_json = {
   "type": "service_account",
   "project_id": "test-responses-469611",
@@ -36,11 +36,9 @@ creds = Credentials.from_service_account_info(
 gc = gspread.authorize(creds)
 sheet = gc.open("Test Responses").sheet1
 
-# 🔧 Telegram настройки
+# Telegram
 TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 user_states = {}
 reminder_times = [time(10, 0), time(14, 0), time(20, 0)]
@@ -57,11 +55,8 @@ def log_to_sheet(name, username, user_id, lang, event):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_id = user.id
-    user_states[user_id] = {"status": "waiting"}
-
+    user_states[user.id] = {"status": "waiting"}
     log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "▶️ /start")
-
     await update.message.reply_text(
         "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
         "❗️Hi! Don’t forget to complete the test by the end of the month: https://forms.office.com/e/76GbS3T71W",
@@ -71,15 +66,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = query.from_user
-    user_id = user.id
     await query.answer()
 
     if query.data == "completed":
-        user_states[user_id]["status"] = "completed"
+        user_states[user.id]["status"] = "completed"
         log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "✅ Пройдено")
         await query.edit_message_text("✅ Дякуємо! / Thank you for completing the test.")
     elif query.data == "later":
-        user_states[user_id]["status"] = "later"
+        user_states[user.id]["status"] = "later"
         log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "⏰ Позже")
         await query.edit_message_text("⏰ Добре, нагадаємо пізніше. / Got it, we’ll remind you later.")
 
@@ -108,12 +102,7 @@ async def main_wrapper():
     await app.run_polling()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main_wrapper())
-    except RuntimeError as e:
-        if "cannot be called from a running event loop" in str(e).lower():
-            loop = asyncio.get_event_loop()
-            loop.create_task(main_wrapper())
-            loop.run_forever()
-        else:
-            raise
+    loop = asyncio.get_event_loop()
+    loop.create_task(main_wrapper())
+    loop.run_forever()
+
