@@ -14,7 +14,7 @@ import os
 import json
 
 # 🔐 Google Sheets авторизация через ENV
-raw_creds = os.getenv("GOOGLE_SHEETS_CREDS")
+from creds import raw_creds
 
 if not raw_creds:
     raise Exception("Переменная GOOGLE_SHEETS_CREDS не найдена!")
