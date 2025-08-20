@@ -8,39 +8,28 @@ from telegram.ext import (
     ContextTypes,
 )
 import asyncio
-import json
-import os
-from google.oauth2.service_account import Credentials
 import gspread
+from google.oauth2.service_account import Credentials
+import os
+import json
 
-# 🔒 Вшитый токен
-TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
+# 🔐 Google Sheets авторизация через ENV
+creds_json = json.loads(os.getenv("GOOGLE_SHEETS_CREDS"))
+creds = Credentials.from_service_account_info(
+    creds_json,
+    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+)
+gc = gspread.authorize(creds)
+sheet = gc.open("Test Responses").sheet1
 
-# 🕒 Время напоминаний
-reminder_times = [time(10, 0), time(14, 0), time(20, 0)]
+# 🔧 Telegram настройки
+TOKEN = os.getenv("BOT_TOKEN")
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
 user_states = {}
-
-# 📊 Настройка Google Sheets
-def get_sheet():
-    creds_json = os.environ["GOOGLE_CREDENTIALS"]
-    creds_dict = json.loads(creds_json)
-    credentials = Credentials.from_service_account_info(
-        creds_dict,
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-    gc = gspread.authorize(credentials)
-    return gc.open("Test Responses").sheet1
-
-def log_to_sheet(user, event):
-    sheet = get_sheet()
-    sheet.append_row([
-        user.full_name,
-        f"@{user.username}" if user.username else "—",
-        user.id,
-        user.language_code,
-        event,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    ])
+reminder_times = [time(10, 0), time(14, 0), time(20, 0)]
 
 def get_keyboard():
     return InlineKeyboardMarkup([
@@ -48,9 +37,16 @@ def get_keyboard():
         [InlineKeyboardButton("⏰ Пройду пізніше / I’ll do it later", callback_data="later")]
     ])
 
+def log_to_sheet(name, username, user_id, lang, event):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sheet.append_row([name, username, str(user_id), lang, event, timestamp])
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_states[user.id] = {"status": "waiting"}
+    user_id = user.id
+    user_states[user_id] = {"status": "waiting"}
+
+    log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "▶️ /start")
 
     await update.message.reply_text(
         "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
@@ -58,21 +54,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_keyboard()
     )
 
-    log_to_sheet(user, "/start")
-
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = query.from_user
+    user_id = user.id
     await query.answer()
 
     if query.data == "completed":
-        user_states[user.id]["status"] = "completed"
+        user_states[user_id]["status"] = "completed"
+        log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "✅ Пройдено")
         await query.edit_message_text("✅ Дякуємо! / Thank you for completing the test.")
-        log_to_sheet(user, "✅ Пройдено")
+
     elif query.data == "later":
-        user_states[user.id]["status"] = "later"
+        user_states[user_id]["status"] = "later"
+        log_to_sheet(user.full_name, user.username or "—", user.id, user.language_code, "⏰ Позже")
         await query.edit_message_text("⏰ Добре, нагадаємо пізніше. / Got it, we’ll remind you later.")
-        log_to_sheet(user, "⏰ Пізніше")
 
 async def reminder_loop(app):
     while True:
@@ -91,16 +87,16 @@ async def reminder_loop(app):
             await asyncio.sleep(60)
         await asyncio.sleep(10)
 
-# 🚀 Запуск
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
+
     asyncio.create_task(reminder_loop(app))
     await app.run_polling()
 
-
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(main())
 
