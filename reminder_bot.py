@@ -99,17 +99,9 @@ async def main_wrapper():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
     asyncio.create_task(reminder_loop(app))
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.updater.wait_until_closed()
-    await app.stop()
-    await app.shutdown()
-
+    await app.run_polling()
+    
 if __name__ == "__main__":
     import nest_asyncio
     nest_asyncio.apply()
     asyncio.run(main_wrapper())
-
-
-
