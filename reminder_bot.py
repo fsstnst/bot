@@ -1,5 +1,4 @@
 import logging
-import asyncio
 from datetime import datetime, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -8,46 +7,54 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
 )
+import asyncio
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 🔒 Токен Telegram и ID админа
+# 📌 Настройки бота
 TOKEN = "8334051228:AAFcSyean64FwsDZ7zpzad920bboUbD8gIk"
+SHEET_NAME = "Test Responses"
+ADMIN_ID = 451971519  # больше не используется
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-
-user_states = {}
+# 📌 Время напоминаний
 reminder_times = [time(7, 0), time(10, 0), time(17, 0)]
 
+# 🧠 Хранилище состояний пользователей
+user_states = {}
 
+# 📋 Настройка Google Sheets
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
+client = gspread.authorize(creds)
+sheet = client.open(SHEET_NAME).sheet1
+
+# 🛠️ Логгер
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+
+# 📤 Кнопки
 def get_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ Тест пройдено / Test completed", callback_data="completed")],
         [InlineKeyboardButton("⏰ Пройду пізніше / I’ll do it later", callback_data="later")]
     ])
 
+# 📝 Запись в таблицу
+def log_to_sheet(user, event: str):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = [
+        user.full_name,
+        f"@{user.username}" if user.username else "—",
+        str(user.id),
+        user.language_code,
+        event,
+        timestamp,
+    ]
+    sheet.append_row(row, value_input_option="RAW")
 
-def log_to_sheet(name, username, user_id, lang, status):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
-    client = gspread.authorize(creds)
-    sheet = client.open("Test Responses").sheet1
-    sheet.append_row([
-        name,
-        username if username else "—",
-        str(user_id),
-        lang if lang else "—",
-        status,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ])
-
-
+# 🟢 Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_id = user.id
-    user_states[user_id] = {"status": "waiting"}
+    user_states[user.id] = {"status": "waiting"}
 
     await update.message.reply_text(
         "❗️Привіт! Не забудь пройти тестування до кінця місяця: https://forms.office.com/e/76GbS3T71W\n"
@@ -55,25 +62,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_keyboard()
     )
 
-    log_to_sheet(user.full_name, user.username, user.id, user.language_code, "🚀 Старт")
+    log_to_sheet(user, "🚀 /start")
 
-
+# 🔘 Кнопки
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user = query.from_user
-    user_id = user.id
+    user_id = query.from_user.id
     await query.answer()
 
     if query.data == "completed":
         user_states[user_id]["status"] = "completed"
         await query.edit_message_text("✅ Дякуємо! / Thank you for completing the test.")
-        log_to_sheet(user.full_name, user.username, user_id, user.language_code, "✅ Пройдено")
+        log_to_sheet(query.from_user, "✅ Пройдено")
     elif query.data == "later":
         user_states[user_id]["status"] = "later"
         await query.edit_message_text("⏰ Добре, нагадаємо пізніше. / Got it, we’ll remind you later.")
-        log_to_sheet(user.full_name, user.username, user_id, user.language_code, "⏰ Позже")
+        log_to_sheet(query.from_user, "⏰ Позже")
 
-
+# ⏰ Напоминания
 async def reminder_loop(app):
     while True:
         now = datetime.now().time()
@@ -91,20 +97,13 @@ async def reminder_loop(app):
             await asyncio.sleep(60)
         await asyncio.sleep(10)
 
-
+# 🚀 Запуск
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
-
     asyncio.create_task(reminder_loop(app))
-
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.updater.idle()
-
+    await app.run_polling()
 
 if __name__ == "__main__":
     asyncio.run(main())
