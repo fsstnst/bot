@@ -14,7 +14,13 @@ import os
 import json
 
 # 🔐 Google Sheets авторизация через ENV
-creds_json = json.loads(os.getenv("GOOGLE_SHEETS_CREDS"))
+raw_creds = os.getenv("GOOGLE_SHEETS_CREDS")
+
+if not raw_creds:
+    raise Exception("Переменная GOOGLE_SHEETS_CREDS не найдена!")
+
+creds_json = json.loads(raw_creds)
+
 creds = Credentials.from_service_account_info(
     creds_json,
     scopes=["https://www.googleapis.com/auth/spreadsheets"]
