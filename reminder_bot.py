@@ -97,11 +97,8 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
     asyncio.create_task(reminder_loop(app))
-    await app.initialize()
-    await app.start()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.updater.start_polling()
-    await app.updater.idle()
+    await app.run_polling()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
