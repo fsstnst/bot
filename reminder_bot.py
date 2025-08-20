@@ -99,22 +99,17 @@ async def main_wrapper():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
     asyncio.create_task(reminder_loop(app))
-    await app.run_polling()
-
-import sys
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.wait_until_closed()
+    await app.stop()
+    await app.shutdown()
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    import nest_asyncio
+    nest_asyncio.apply()
+    asyncio.run(main_wrapper())
 
-    try:
-        asyncio.run(main_wrapper())
-    except RuntimeError as e:
-        if "cannot be called from a running event loop" in str(e).lower():
-            loop = asyncio.get_event_loop()
-            loop.create_task(main_wrapper())
-            loop.run_forever()
-        else:
-            raise
 
 
