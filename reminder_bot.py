@@ -102,7 +102,13 @@ async def main_wrapper():
     await app.run_polling()
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(main_wrapper())
-    loop.run_forever()
+    try:
+        asyncio.run(main_wrapper())
+    except RuntimeError as e:
+        if "cannot be called from a running event loop" in str(e).lower():
+            loop = asyncio.get_event_loop()
+            loop.create_task(main_wrapper())
+            loop.run_forever()
+        else:
+            raise
 
